@@ -42,6 +42,15 @@ header{height:64px;background:linear-gradient(90deg,#06244e,#0a3b79);color:#fff;
 .doc-empty{padding:14px;border:1px dashed #b7c3d2;border-radius:10px;color:#667085;background:#f8fafc}
 @media(max-width:800px){.doc-panel{width:100vw}.doc-body{grid-template-columns:1fr}.doc-list{max-height:43vh;border-right:0;border-bottom:1px solid #dce3ec}.doc-view{min-height:52vh}.doc-head{padding:12px}.doc-head h2{font-size:16px}}
 
+
+@media(max-width:900px){
+  #sheet.open{transform:translateX(0)!important;display:block!important;visibility:visible!important;opacity:1!important;z-index:2147483647!important;position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important;background:#f7f9fc!important;}
+  .mobile-maint-cta{pointer-events:auto!important;position:relative!important;z-index:3!important;}
+  .plant-card{pointer-events:auto!important;position:relative!important;}
+  body.sheet-mobile-open{overflow:hidden!important;}
+  #mobileFixVersion{display:block!important;}
+}
+#mobileFixVersion{display:none;position:fixed;right:5px;bottom:5px;z-index:2147483646;background:#092c5c;color:#fff;font-size:9px;padding:3px 5px;border-radius:4px;opacity:.75}
 </style>
 
 <style>
@@ -314,7 +323,7 @@ aside.menu{background:#fff;border-right:1px solid var(--line);padding:14px;posit
 }
 @media(max-width:430px){#plants .toolbar{grid-template-columns:1fr}#plants .toolbar #q,#plants .toolbar #count{grid-column:1}}
 </style>
-</head><body><h1>Report verifica RA</h1><p>UMTE1 Gallarate</p><table>${pairs.map(k=>`<tr><td>${esc(k)}</td><td>${esc(r[k]??'').replace(/\n/g,'<br>')}</td></tr>`).join('')}</table><p><button onclick="print()">STAMPA / SALVA PDF</button></p></body></html>`);w.document.close()}
+</head><body><h1>Report verifica RA</h1><p>UMTE1 Gallarate</p><table>${pairs.map(k=>`<tr><td>${esc(k)}</td><td>${esc(r[k]??'').replace(/\n/g,'<br>')}</td></tr>`).join('')}</table><p><button onclick="print()">STAMPA / SALVA PDF</button></p><div id="mobileFixVersion">RA mobile fix V3</div></body></html>`);w.document.close()}
 function openAdminPanel(){if(currentUserRole!=='admin')return alert('Accesso riservato agli amministratori.');document.getElementById('adminResetOptions').innerHTML=rows.map(r=>`<option value="${esc(r['Sede tecnica'])}">${esc(r['Tratta / Località'])} — ${esc(r['Nucleo'])}</option>`).join('');renderAdminRATable();renderAdminDocs();document.getElementById('adminPanel').classList.remove('hidden')}
 function closeAdminPanel(){document.getElementById('adminPanel').classList.add('hidden')}
 function adminRAFilter(){let q=norm(document.getElementById('adminRASearch')?.value||'');return rows.filter(r=>!q||norm([r['Sede tecnica'],r['Tratta / Località'],r['Nucleo'],r['Def. sede tecnica']].join(' ')).includes(q))}
@@ -412,16 +421,46 @@ async function cloudFirstAccess(){if(!cloudConfigured())return loginMsg('Configu
 // stessa presentazione ruolo del gestionale Sezionatori
 const __loadProfileRA=loadProfile;loadProfile=async function(){await __loadProfileRA();updateRoleUI();let em=document.getElementById('cloudUserEmail');if(em&&currentUserProfile?.full_name)em.textContent=currentUserProfile.full_name+' · '+(currentUserProfile.email||cloudSession?.user?.email||'');}
 const __cloudLogoutRA=cloudLogout;cloudLogout=async function(){await __cloudLogoutRA();updateRoleUI();}
+function safeOpenSheet(id){
+  const panel=document.getElementById('sheet');
+  const title=document.getElementById('sheetTitle');
+  try{
+    const r=rows.find(x=>String(x._row)===String(id));
+    if(!r){alert('RA non trovata: '+id);return false;}
+    current=r;
+    if(panel){
+      panel.classList.add('open');
+      panel.style.transform='translateX(0)';
+      panel.style.display='block';
+      panel.style.visibility='visible';
+      panel.style.opacity='1';
+      panel.style.zIndex='2147483647';
+    }
+    if(title)title.textContent='RA — '+(r['Sede tecnica']||'Impianto');
+    document.body.style.overflow='hidden';
+    openSheet(id);
+    return false;
+  }catch(err){
+    console.error('safeOpenSheet mobile error',err);
+    if(panel){
+      panel.classList.add('open');
+      panel.style.transform='translateX(0)';
+      panel.style.display='block';
+      panel.style.visibility='visible';
+      panel.style.opacity='1';
+      panel.style.zIndex='2147483647';
+      const body=panel.querySelector('.sheet-body');
+      if(body)body.innerHTML='<div class="group"><h3>Errore apertura scheda</h3><div class="notice">'+String(err&&err.message||err)+'</div></div>';
+    }
+    alert('Errore apertura scheda RA: '+String(err&&err.message||err));
+    return false;
+  }
+}
+window.safeOpenSheet=safeOpenSheet;
 function openSheetBySite(site){let r=rows.find(x=>String(x['Sede tecnica']||'')===String(site||''));if(!r)return appToast('RA non trovata.','err');openSheet(r._row)}
 function mobileRARows(list){
   const e=document.getElementById('mobilePlants');if(!e)return;
-  e.innerHTML=list.map(r=>`<div class="plant-card" role="button" tabindex="0" data-ra-site="${esc(String(r['Sede tecnica']||''))}"><div class="pc-title">${esc(r['Sede tecnica'])}</div><div class="pc-sub">${esc(r['Tratta / Località'])} · ${esc(r['Nucleo'])}</div><div class="pc-tags">${tag(r['Priorità proposta']||'D')} ${tag(r['Verifica completata']==='SI'?'SI':'NO')} ${r['Stato spessore']?tag(r['Stato spessore']):''}</div><button type="button" class="mobile-maint-cta">APRI SCHEDA MANUTENZIONE</button></div>`).join('')||'<div class="admin-note">Nessuna RA corrisponde ai filtri impostati.</div>';
-  e.querySelectorAll('.plant-card').forEach(card=>{
-    const open=ev=>{ev?.preventDefault?.();ev?.stopPropagation?.();openSheetBySite(card.dataset.raSite)};
-    card.addEventListener('click',open,{passive:false});
-    card.querySelector('.mobile-maint-cta')?.addEventListener('click',open,{passive:false});
-    card.addEventListener('keydown',ev=>{if(ev.key==='Enter'||ev.key===' '){open(ev)}})
-  })
+  e.innerHTML=list.map(r=>`<div class="plant-card" role="button" tabindex="0" data-ra-row="${esc(String(r._row))}" onclick="return safeOpenSheet(this.dataset.raRow)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();safeOpenSheet(this.dataset.raRow)}"><div class="pc-title">${esc(r['Sede tecnica'])}</div><div class="pc-sub">${esc(r['Tratta / Località'])} · ${esc(r['Nucleo'])}</div><div class="pc-tags">${tag(r['Priorità proposta']||'D')} ${tag(r['Verifica completata']==='SI'?'SI':'NO')} ${r['Stato spessore']?tag(r['Stato spessore']):''}</div><button type="button" class="mobile-maint-cta" data-ra-row="${esc(String(r._row))}" onclick="event.preventDefault();event.stopPropagation();return safeOpenSheet(this.dataset.raRow)">APRI SCHEDA MANUTENZIONE</button></div>`).join('')||'<div class="admin-note">Nessuna RA corrisponde ai filtri impostati.</div>';
 }
 const __renderListRA=renderList;renderList=function(){let qq=norm(q.value),nn=norm(nf.value),pp=norm(pf.value),cc=norm(cf.value);let f=rows.filter(r=>(!qq||Object.values(r).some(v=>norm(v).includes(qq)))&&(!nn||norm(r['Nucleo'])===nn)&&(!pp||norm(r['Priorità proposta'])===pp)&&(!cc||norm(r['Verifica completata'])===cc));count.textContent=f.length+' impianti';tbody.innerHTML=f.map(r=>`<tr onclick="openSheet(${r._row})" style="cursor:pointer"><td><b>${esc(r['Sede tecnica'])}</b></td><td>${esc(r['Tratta / Località'])}</td><td>${esc(r['Nucleo'])}</td><td>${tag(r['Stato spessore'])}</td><td>${tag(r['RA conforme (SI/NO)'])}</td><td>${tag(r['RA fune conforme (SI/NO)'])}</td><td>${tag(r['Priorità proposta'])}</td><td>${tag(r['Verifica completata'])}</td></tr>`).join('');mobileRARows(f)}
 function csvCell(v){let x=String(v??'');return /[;"\n\r]/.test(x)?'"'+x.replace(/"/g,'""')+'"':x}
