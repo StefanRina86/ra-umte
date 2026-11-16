@@ -138,11 +138,11 @@ header{background:linear-gradient(90deg,#06244e,#0a3b79)!important;color:#fff}
 <aside id="sheet"><div class="sheet-head"><h2 id="sheetTitle">Scheda RA</h2><button class="btn secondary" onclick="closeSheet()">CHIUDI</button></div><div class="sheet-body">
 <div class="group"><h3>Anagrafica impianto</h3><div class="fields" id="anag"></div></div>
 <div class="group"><h3>Dati di regolazione</h3><div class="fields" id="base"></div></div>
-<div class="group"><h3>Spessore filo</h3><div class="fields" id="wear"></div></div>
+<div class="group"><h3>Spessore filo</h3><div class="fields" id="wear"></div><div class="group" id="extraMeasureGroup"><h3>Punti di misura aggiuntivi</h3><p class="muted" style="margin:0 0 10px">Aggiungi tutti i punti necessari alla verifica. Le misure sono archiviate nella scheda RA e nello storico.</p><div id="extraMeasureRows"></div><button type="button" class="btn secondary" onclick="addRAMeasurePoint()" style="margin-top:10px">+ AGGIUNGI PUNTO DI MISURA</button></div></div>
 <div class="group"><h3>Giunti</h3><div class="fields" id="joints"></div></div>
 <div class="group"><h3>Quote RA — filo di contatto</h3><div class="fields" id="wire"></div></div>
 <div class="group" id="ropeGroup"><h3>Quote RA — fune portante</h3><div class="fields" id="rope"></div></div>
-<div class="group" id="extraMeasureGroup"><h3>Punti di misura aggiuntivi</h3><p class="muted" style="margin:0 0 10px">Aggiungi tutti i punti necessari alla verifica. Le misure sono archiviate nella scheda RA e nello storico.</p><div id="extraMeasureRows"></div><button type="button" class="btn secondary" onclick="addRAMeasurePoint()" style="margin-top:10px">+ AGGIUNGI PUNTO DI MISURA</button></div>
+
 <div class="group"><h3>Controlli meccanici</h3><div class="fields" id="mech"></div></div>
 <div class="group"><h3>Note e intervento eseguito</h3><div class="fields" id="notes"></div></div>
 <div class="group"><h3>Risultati automatici</h3><div class="results" id="results"></div><div class="field full" style="margin-top:10px"><label>Intervento previsto</label><textarea id="autoIntervention" class="readonly" readonly></textarea></div></div>
