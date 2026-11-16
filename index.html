@@ -139,7 +139,7 @@ header{background:linear-gradient(90deg,#06244e,#0a3b79)!important;color:#fff}
 <div class="group"><h3>Anagrafica impianto</h3><div class="fields" id="anag"></div></div>
 <div class="group"><h3>Dati di regolazione</h3><div class="fields" id="base"></div></div>
 <div class="group"><h3>Spessore filo</h3><div class="fields" id="wear"></div></div>
-<div class="group"><h3>Giunti</h3><div class="fields" id="joints"></div></div><div class="group"><h3>Punti di misura aggiuntivi</h3><div id="raExtraMeasurements"></div><button class="btn secondary" type="button" onclick="raAddMeasurement()">+ AGGIUNGI PUNTO DI MISURA</button></div>
+<div class="group"><h3>Giunti</h3><div class="fields" id="joints"></div></div>
 <div class="group"><h3>Quote RA — filo di contatto</h3><div class="fields" id="wire"></div></div>
 <div class="group" id="ropeGroup"><h3>Quote RA — fune portante</h3><div class="fields" id="rope"></div></div>
 <div class="group" id="extraMeasureGroup"><h3>Punti di misura aggiuntivi</h3><p class="muted" style="margin:0 0 10px">Aggiungi tutti i punti necessari alla verifica. Le misure sono archiviate nella scheda RA e nello storico.</p><div id="extraMeasureRows"></div><button type="button" class="btn secondary" onclick="addRAMeasurePoint()" style="margin-top:10px">+ AGGIUNGI PUNTO DI MISURA</button></div>
@@ -318,7 +318,6 @@ function openSheet(id){
   el.notes.innerHTML=fieldHTML('Anomalia dispositivo RA','Anomalia dispositivo RA',{area:true,full:true})+fieldHTML('Note','Note',{area:true,full:true})+fieldHTML('Intervento eseguito','Intervento eseguito',{area:true,full:true});
   renderRAMeasurePoints();
   renderResults();
-  raRenderMeasurements();
   document.querySelectorAll('#sheet [data-k]').forEach(e=>e.addEventListener('change',()=>{syncCurrent();calc(current);openSheet(current._row)}));
   el.sheet.classList.add('open');
   el.sheet.style.transform='translateX(0)';
@@ -330,7 +329,7 @@ function renderResults(){const r=document.getElementById('results'),a=document.g
 function recalcCurrent(){syncCurrent();calc(current);openSheet(current._row)}async function saveCurrent(){syncCurrent();calc(current);current['Ultimo aggiornamento']=new Date().toISOString().slice(0,19).replace('T',' ');if(!current['Operatore modifica'])current['Operatore modifica']='Utente';let ok=await saveSharedCurrent();if(ok){renderAll();openSheet(current._row)}}function closeSheet(){const s=document.getElementById('sheet');if(s){s.classList.remove('open');s.style.transform=''}document.body.style.overflow='';current=null}
 function show(v){['dash','plants','critical'].forEach(id=>document.getElementById(id).classList.toggle('hidden',id!==v));document.querySelectorAll('.navbtn[data-v]').forEach(b=>b.classList.toggle('active',b.dataset.v===v));if(v==='dash')renderDash();if(v==='plants')renderList();if(v==='critical')renderCritical()}
 document.querySelectorAll('.navbtn[data-v]').forEach(b=>b.onclick=()=>show(b.dataset.v));[q,nf,pf,cf,duf].forEach(e=>e&&e.addEventListener('input',renderList));
-function exportCSV(){let cols=[...RA_DATA.headers.filter(h=>!h.startsWith('Colonna ')),'extra_measurement_points'];let lines=[cols.map(csv).join(';'),...rows.map(r=>cols.map(h=>csv(h==='extra_measurement_points'?JSON.stringify(raSanitizeMeasurements(r[h])):r[h])).join(';'))];download(new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),'UMTE_Manager_RA_export.csv')}function csv(v){return '"'+String(v??'').replace(/"/g,'""')+'"'}function backup(){download(new Blob([JSON.stringify(rows,null,2)],{type:'application/json'}),'UMTE_Manager_RA_backup.json')}function download(blob,name){let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function exportCSV(){let cols=[...new Set([...RA_DATA.headers.filter(h=>!h.startsWith('Colonna ')),RA_EXTRA_MEASURE_KEY])];let lines=[cols.map(csv).join(';'),...rows.map(r=>cols.map(h=>csv(h===RA_EXTRA_MEASURE_KEY?JSON.stringify(Array.isArray(r[h])?r[h]:[]):r[h])).join(';'))];download(new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),'UMTE_Manager_RA_export.csv')}function csv(v){return '"'+String(v??'').replace(/"/g,'""')+'"'}function backup(){download(new Blob([JSON.stringify(rows,null,2)],{type:'application/json'}),'UMTE_Manager_RA_backup.json')}function download(blob,name){let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 
 // ===== UMTE ONLINE 1.0 =====
 let cloudSession=null,currentUserRole='',currentUserProfile=null;
@@ -603,36 +602,10 @@ function raAssetPayloadV8(r){
   return o;
 }
 
-function raSanitizeMeasurements(items){
- if(!Array.isArray(items))return [];
- return items.slice(0,100).map(x=>({label:String(x?.label??'').slice(0,120),position:String(x?.position??'').slice(0,160),value:String(x?.value??'').slice(0,64),unit:String(x?.unit??'mm').slice(0,24),notes:String(x?.notes??'').slice(0,500)}));
-}
-function raRenderMeasurements(){
- const root=document.getElementById('raExtraMeasurements');if(!root||!current)return;
- const points=raSanitizeMeasurements(current.extra_measurement_points);current.extra_measurement_points=points;root.replaceChildren();
- points.forEach((p,i)=>{
-  const item=document.createElement('div');item.style.cssText='padding:12px;border:1px solid #d8e0ea;border-radius:10px;margin:10px 0';
-  const h=document.createElement('strong');h.textContent='Punto '+(i+1);item.appendChild(h);
-  const grid=document.createElement('div');grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;margin-top:8px';
-  [['label','Tipo di misura'],['position','Posizione / km'],['value','Valore rilevato'],['unit','Unità'],['notes','Note']].forEach(([k,t])=>{
-   const lab=document.createElement('label');lab.textContent=t;lab.style.cssText='display:grid;gap:4px;font-size:12px';
-   const inp=document.createElement('input');inp.type='text';inp.value=p[k];inp.style.cssText='width:100%;padding:9px;border:1px solid #b9c7d8;border-radius:8px';
-   inp.maxLength=k==='notes'?500:160;inp.addEventListener('input',()=>{if(current?.extra_measurement_points?.[i])current.extra_measurement_points[i][k]=inp.value});
-   lab.appendChild(inp);grid.appendChild(lab);
-  });item.appendChild(grid);
-  const del=document.createElement('button');del.type='button';del.className='btn secondary';del.style.marginTop='8px';del.textContent='RIMUOVI PUNTO';
-  del.onclick=()=>{current.extra_measurement_points.splice(i,1);raRenderMeasurements()};item.appendChild(del);root.appendChild(item);
- });
-}
-function raAddMeasurement(){
- if(!current)return;current.extra_measurement_points=raSanitizeMeasurements(current.extra_measurement_points);
- if(current.extra_measurement_points.length>=100){alert('Limite massimo: 100 punti.');return}
- current.extra_measurement_points.push({label:'',position:'',value:'',unit:'mm',notes:''});raRenderMeasurements();
-}
 function raOperationalPayloadV8(r){
   const o={};
   (RA_DATA.headers||[]).forEach(k=>{if(!RA_STATIC_SET_V8.has(k))o[k]=r?.[k]??''});
-  o.extra_measurement_points=raSanitizeMeasurements(r?.extra_measurement_points);
+  o[RA_EXTRA_MEASURE_KEY]=Array.isArray(r?.[RA_EXTRA_MEASURE_KEY])?r[RA_EXTRA_MEASURE_KEY].map(p=>({position:String(p.position??""),type:String(p.type??""),value:String(p.value??""),unit:String(p.unit??""),notes:String(p.notes??"")})):[];
   return o;
 }
 function raStateRecordV8(r){
