@@ -142,6 +142,7 @@ header{background:linear-gradient(90deg,#06244e,#0a3b79)!important;color:#fff}
 <div class="group"><h3>Giunti</h3><div class="fields" id="joints"></div></div>
 <div class="group"><h3>Quote RA — filo di contatto</h3><div class="fields" id="wire"></div></div>
 <div class="group" id="ropeGroup"><h3>Quote RA — fune portante</h3><div class="fields" id="rope"></div></div>
+<div class="group" id="extraMeasureGroup"><h3>Punti di misura aggiuntivi</h3><p class="muted" style="margin:0 0 10px">Aggiungi tutti i punti necessari alla verifica. Le misure sono archiviate nella scheda RA e nello storico.</p><div id="extraMeasureRows"></div><button type="button" class="btn secondary" onclick="addRAMeasurePoint()" style="margin-top:10px">+ AGGIUNGI PUNTO DI MISURA</button></div>
 <div class="group"><h3>Controlli meccanici</h3><div class="fields" id="mech"></div></div>
 <div class="group"><h3>Note e intervento eseguito</h3><div class="fields" id="notes"></div></div>
 <div class="group"><h3>Risultati automatici</h3><div class="results" id="results"></div><div class="field full" style="margin-top:10px"><label>Intervento previsto</label><textarea id="autoIntervention" class="readonly" readonly></textarea></div></div>
@@ -246,6 +247,45 @@ function renderCritical(){ctbody.innerHTML=rows.filter(r=>norm(r['Priorità prop
 function fieldHTML(label,key,opt={}){let v=current[key]??'',ro=!!opt.ro,choices=opt.choices||null;let control;if(choices)control=`<select data-k="${esc(key)}" ${ro?'disabled':''}><option></option>${choices.map(x=>`<option ${norm(v)===norm(x)?'selected':''}>${esc(x)}</option>`).join('')}</select>`;else if(opt.area)control=`<textarea data-k="${esc(key)}" ${ro?'readonly':''} class="${ro?'readonly':''}">${esc(v)}</textarea>`;else control=`<input data-k="${esc(key)}" value="${esc(v)}" ${ro?'readonly':''} class="${ro?'readonly':''}">`;return `<div class="field ${opt.full?'full':''}"><label>${esc(label)}</label>${control}</div>`}
 function wearInfo(){let th=RA_PARAMS.thresholds[current['Tipo filo / tiro']];if(!th)return '<div class="notice full">Seleziona il tipo filo per visualizzare le soglie automatiche.</div>';return `<div class="notice full"><b>Soglie automatiche:</b> Attenzione ≤ ${th.attention} mm · Intervento entro 30 gg ≤ ${th.within30} mm · Difetto rilevante ≤ ${th.defect} mm</div>`}
 function jointInfo(){let t=norm(current['Tipo linea (A/B/C/DD/AV)']);let a=t==='C'?[6,2]:['A','B'].includes(t)?[4,1]:['DD','AV'].includes(t)?[0,0]:null;return a?`<div class="notice full"><b>Limiti linea ${t}:</b> max ${a[0]} giunti nella regolazione · max ${a[1]} nella campata critica.</div>`:'<div class="notice full">Seleziona il tipo linea per calcolare automaticamente il supero giunti.</div>'}
+// Punti di misura aggiuntivi (RA): conservati nel record e nello storico.
+const RA_EXTRA_MEASURE_KEY='Punti di misura aggiuntivi';
+function raExtraPoints(){
+ if(!current)return [];
+ const value=current[RA_EXTRA_MEASURE_KEY];
+ if(Array.isArray(value))return value;
+ if(typeof value==='string'){try{const a=JSON.parse(value);if(Array.isArray(a))return a}catch(_){}}
+ return [];
+}
+function renderRAMeasurePoints(){
+ const container=document.getElementById('extraMeasureRows');if(!container)return;
+ const points=raExtraPoints();
+ container.innerHTML=points.length?points.map((p,i)=>`<div class="card" style="margin-bottom:8px;padding:12px"><div class="fields">
+ <div class="field"><label>Punto n. ${i+1} — posizione / riferimento</label><input data-ra-extra="${i}" data-ra-prop="position" value="${esc(p.position||'')}" placeholder="Es. campata, progressiva, sostegno"></div>
+ <div class="field"><label>Tipologia di misura</label><input data-ra-extra="${i}" data-ra-prop="type" value="${esc(p.type||'')}" placeholder="Es. spessore, quota, tensione"></div>
+ <div class="field"><label>Valore rilevato</label><input data-ra-extra="${i}" data-ra-prop="value" value="${esc(p.value??'')}" placeholder="Valore"></div>
+ <div class="field"><label>Unità di misura</label><input data-ra-extra="${i}" data-ra-prop="unit" value="${esc(p.unit||'')}" placeholder="Es. mm, m, N"></div>
+ <div class="field full"><label>Note</label><textarea data-ra-extra="${i}" data-ra-prop="notes">${esc(p.notes||'')}</textarea></div>
+ </div><button type="button" class="btn secondary" onclick="removeRAMeasurePoint(${i})">RIMUOVI PUNTO</button></div>`).join(''):'<div class="notice">Nessun punto aggiuntivo inserito.</div>';
+ container.querySelectorAll('[data-ra-extra]').forEach(el=>el.addEventListener('input',()=>{
+  if(!current)return;
+  const points=raExtraPoints().map(x=>({...x}));
+  const index=Number(el.dataset.raExtra);if(!points[index])return;
+  points[index][el.dataset.raProp]=el.value;
+  current[RA_EXTRA_MEASURE_KEY]=points;
+ }));
+}
+function addRAMeasurePoint(){
+ if(!current)return;
+ current[RA_EXTRA_MEASURE_KEY]=[...raExtraPoints(),{position:'',type:'',value:'',unit:'',notes:''}];
+ renderRAMeasurePoints();
+ const inputs=document.querySelectorAll('#extraMeasureRows [data-ra-prop="position"]');
+ inputs[inputs.length-1]?.focus();
+}
+function removeRAMeasurePoint(index){
+ if(!current)return;
+ current[RA_EXTRA_MEASURE_KEY]=raExtraPoints().filter((_,i)=>i!==index);
+ renderRAMeasurePoints();
+}
 function openSheet(id){
   current=rows.find(r=>String(r._row)===String(id));
   if(!current){appToast('RA non trovata.','err');return}
@@ -276,6 +316,7 @@ function openSheet(id){
   if(el.ropeGroup)el.ropeGroup.classList.toggle('hidden',norm(current['Fune portante regolata (SI/NO)'])==='NO');
   el.mech.innerHTML=['Movimentazione contrappesi','Rotazione carrucole','Fune della taglia in sede','Complesso RA e sostegno'].map(k=>fieldHTML(k,k,{choices:['OK','KO','N.A.']})).join('');
   el.notes.innerHTML=fieldHTML('Anomalia dispositivo RA','Anomalia dispositivo RA',{area:true,full:true})+fieldHTML('Note','Note',{area:true,full:true})+fieldHTML('Intervento eseguito','Intervento eseguito',{area:true,full:true});
+  renderRAMeasurePoints();
   renderResults();
   document.querySelectorAll('#sheet [data-k]').forEach(e=>e.addEventListener('change',()=>{syncCurrent();calc(current);openSheet(current._row)}));
   el.sheet.classList.add('open');
@@ -386,7 +427,7 @@ aside.menu{background:#fff;border-right:1px solid var(--line);padding:14px;posit
 }
 @media(max-width:430px){#plants .toolbar{grid-template-columns:1fr}#plants .toolbar #q,#plants .toolbar #count{grid-column:1}}
 </style>
-</head><body><h1>Report verifica RA</h1><p>UMTE1 Gallarate</p><table>${pairs.map(k=>`<tr><td>${esc(k)}</td><td>${esc(r[k]??'').replace(/\n/g,'<br>')}</td></tr>`).join('')}</table><p><button onclick="print()">STAMPA / SALVA PDF</button></p><div id="mobileFixVersion">RA V8 PROTETTA · anagrafica e storico separati</div></body></html>`);w.document.close()}
+</head><body><h1>Report verifica RA</h1><p>UMTE1 Gallarate</p><table>${pairs.map(k=>`<tr><td>${esc(k)}</td><td>${esc(r[k]??'').replace(/\\n/g,'<br>')}</td></tr>`).join('')}${(Array.isArray(r[RA_EXTRA_MEASURE_KEY])?r[RA_EXTRA_MEASURE_KEY]:[]).map((p,i)=>`<tr><td>Punto di misura ${i+1}</td><td>${esc([p.position,p.type,p.value,p.unit,p.notes].filter(Boolean).join(' · '))}</td></tr>`).join('')}</table><p><button onclick="print()">STAMPA / SALVA PDF</button></p><div id="mobileFixVersion">RA V8 PROTETTA · anagrafica e storico separati</div></body></html>`);w.document.close()}
 function openAdminPanel(){if(currentUserRole!=='admin')return alert('Accesso riservato agli amministratori.');document.getElementById('adminResetOptions').innerHTML=rows.map(r=>`<option value="${esc(r['Sede tecnica'])}">${esc(r['Tratta / Località'])} — ${esc(r['Nucleo'])}</option>`).join('');renderAdminRATable();renderAdminDocs();renderODLAdminStatus();document.getElementById('adminPanel').classList.remove('hidden')}
 function closeAdminPanel(){document.getElementById('adminPanel').classList.add('hidden')}
 function adminRAFilter(){let q=norm(document.getElementById('adminRASearch')?.value||'');return rows.filter(r=>!q||norm([r['Sede tecnica'],r['Tratta / Località'],r['Nucleo'],r['Def. sede tecnica']].join(' ')).includes(q))}
